@@ -165,4 +165,12 @@ P_k^-=AP_{k-1}A^T+Q
     \text{后验估计：}\hat{x_k}&=\hat{x_k}^-+K_k(Z_k-H\hat{x_k}^-)\\
     \text{更新误差协方差：}P_k&=(I-K_kH)P_k^-
 \end{align*}
+\chapter{扩展卡尔曼滤波原理推导}
+对非线性的模型进行线性化处理，然后进行卡尔曼滤波
+\section{非线性模型}
+\begin{align*}
+    x_k&=f(x_{k-1},u_{k-1},w_{k-1})\\
+    z_k&=h(x_k,v_k)
+\end{align*}
+我们使用泰勒级数来线性化非线性函数即：$ f(x)=f(x_0)+\frac{\partial f}{\partial x}|_{x_0}(x-x_0) $,那在什么地方线性化呢？我们可以想到上一步的后验估计处
 \end{document}
