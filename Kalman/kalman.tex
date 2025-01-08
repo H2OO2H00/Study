@@ -1,8 +1,8 @@
 \documentclass[12pt, a4paper, oneside]{ctexbook}
 \usepackage{amsmath, amsthm, amssymb, bm, graphicx, hyperref, mathrsfs}
 
-\title{{\Huge{\textbf{卡尔曼滤波}}}\\——副标题}
-\author{Dylaaan}
+\title{{\Huge{\textbf{卡尔曼滤波}}}\\——基础卡尔曼滤波原理推导}
+\author{杜轩}
 \date{\today}
 \linespread{1.5}
 \newtheorem{theorem}{定理}[section]
@@ -23,11 +23,24 @@
     \Huge\textbf{前言}
 \end{center}~\
 
-这是笔记的前言部分. 
+卡尔曼滤波是通过预测和测量得到最优的结果，其算法分为预测和矫正两个部分
+
+\textbf{预测：}
+\begin{align*}
+    \text{先验：}\hat{x_k}^-&=A\hat{x_{k-1}}+Bu_{k-1}\\
+    \text{先验误差协方差：}P_k^-&=AP_k^-A^T+Q
+\end{align*}
+
+\textbf{校正：}
+\begin{align*}
+    \text{卡尔曼增益：}K_k&=\frac{P_k^-H^T}{HP_k^-H^T+R}\\
+    \text{后验估计：}\hat{x_k}&=\hat{x_k}^-+K_k(Z_k-H\hat{x_k}^-)\\
+    \text{更新误差协方差：}P_k&=(I-K_kH)P_k^-
+\end{align*}
 ~\\
 \begin{flushright}
     \begin{tabular}{c}
-        Dylaaan\\
+        杜轩\\
         \today
     \end{tabular}
 \end{flushright}
@@ -40,12 +53,116 @@
 \setcounter{page}{1}
 \pagenumbering{arabic}
 
-\chapter{章节标题}
+\chapter{基础卡尔曼滤波原理推导}
+\section{模型}
+    对于模型（状态转移方程）
+    \begin{align*}
+        x_k&=Ax_{k-1}+Bu_{k-1}+w_{k-1}\\
+        z_k&=Hx_k+v_k
+    \end{align*}
+    其中$u$为输入，$z$是输出,A,B,H已知，$w$和$v$是干扰满足如下高斯分布
+    \begin{align*}
+        w\sim (0,Q)\\
+        v\sim (0,R)
+    \end{align*}
+我们用$\hat{x_k}$表示预测值，其中$\hat{x_k}^-$代表先验估计(通过上一步后验估计和状态转移方程计算)，$\hat{x_k}$代表后验估计（通过先验估计和测量得到）\\
+在忽略$w$的噪声干扰情况下我们可以得到先验估计（就是通过已知的状态空间方程计算）则满足$\hat{x_k}^-=A\hat{x_{k-1}}+Bu_{k-1}$\\
+因为$x_k$测量不到所以通过$x_k=H^{-1}z_k$得到忽略测量干扰
 
-在这里可以输入笔记的内容. 
+令$\hat{x_k} =\hat{x_k}^-+R(H^{-1}z_k-\hat{x_k}^-)$，（R属于0到1）,这样R接近零则表示预测值更信任预测，反之解决1更信任测量。
+令$K_k=RH$则$\hat{x_k} =\hat{x_k}^-+K_k(z_k-H\hat{x_k}^-)$,其中$k_k$为卡尔曼增益
+\section{推导}
+我们定义误差（真实值和预测值得误差）为$e_k=\hat{x_k}-x_k$，其中$x_k$代表真实值。
+我们计算误差为
+\begin{align*}
+    e_k&=\hat{x_k}-x_k\\
+        &=\hat{x_k}^-+K_k(z_k-H\hat{x_k}^-)-x_k\\
+        &=(I-K_kH)\hat{x_k}^-+K_kz_k-x_k\\
+        &=(I-K_kH)\hat{x_k}^-+K_k(Hx_k+v_k)-x_k\\
+        &=(I-K_kH)\hat{x_k}^--(I-K_kH)x_k+K_kv_k\\
+        &=(I-K_kH)(\hat{x_k}^--x_k)+K_kv_k\\
+\end{align*}
+我们令$e_k^-=\hat{x_k}^--x_k$为先验误差
 
-\section{小节标题}
+计算误差期望
+\begin{align*}
+    E(e_k)&=E((I-K_kH)(\hat{x_k}^--x_k))+K_kE(v_k)\\
+          &=E((I-K_kH)(A\hat{x_{k-1}}+Bu_{k-1}-Ax_{k-1}-Bu_{k-1}-w_{k-1}))\\
+          &=(I-K_kH)AE(\hat{x_{k-1}}-x_{k-1})-E(w_{k-1})\\
+\end{align*}
+我们假设初始误差期望为0，即可得$E(e_k)=0$
 
-这是笔记的正文部分. 
-
+我们要使得结果最优即方差最小估计我们计算$e_k$得协方差矩阵$P_k$，其对角线即为方差。
+\begin{align*}
+    P_k&=E(ee^T)\\
+     &=E(((I-K_kH)(\hat{x_k}^--x_k)+K_kv_k)((I-K_kH)(\hat{x_k}^--x_k)+K_kv_k)^T)\\
+     &=E((I-K_kH)e_k^-(e_k^-)^T(I-K_kH)^T+(I-K_kH)e_k^-(v_k)^TK_k^T+K_kv_k(e_k^-)^T(I-K_kH)^T\\
+     &+K_kv_k(v_k)^TK_k^T)\\
+\end{align*}
+因为$e_k^-=\hat{x_k}^--x_k=A\hat{x_{k-1}}+Bu_{k-1}-Ax_{k-1}-Bu_{k-1}-w_{k-1}$,因为$v_k$影响k时刻得测量，且$V_k$相互独立，则$e_k$和$v_k$无关从而$E(e_kv_k)=E(e_k)E(v_k)$
+则
+\begin{align*}
+    P_k&=E((I-K_kH)e_k^-(e_k^-)^T(I-K_kH)^T+(I-K_kH)e_k^-(v_k)^TK_k^T+K_kv_k(e_k^-)^T(I-K_kH)^T\\
+       &+K_kv_k(v_k)^TK_k^T)\\
+     &=E((I-K_kH)e_k^-(e_k^-)^T(I-K_kH)^T)+E((I-K_kH)e_k^-(v_k)^TK_k^T)+E(K_kv_k(e_k^-)^T(I-K_kH)^T)\\
+     &+E(K_kv_k(v_k)^TK_k^T)\\
+     &=E((I-K_kH)e_k^-(e_k^-)^T(I-K_kH)^T)+K_kRK_k^T
+\end{align*}
+我们令$P_k^-=e_k^-(e_k^-)^T$称为先验协方差矩阵,则可得
+\begin{align*}
+    P&=(I-K_kH)P_k^-(I-K_kH)^T+K_kRK_k^T\\
+     &=P_k^--K_kHP_k^--P_k^-H^TK_k^T+K_kHP_k^-H^TK_k^T+K_kRK_k^T\\
+\end{align*}
+我们需要方差最小，即$tr(P)$（代表矩阵得迹）最小
+\begin{align*}
+    tr(P)&=tr(P_k^-)-tr(K_kHP_k^-)-tr(P_k^-H^TK_k^T)+tr(K_kHP_k^-H^TK_k^T)+tr(K_kRK_k^T)\\
+\end{align*}
+矩阵的转置迹不变则
+\begin{align*}
+    tr(P)=tr(P_k^-)-2tr(K_kHP_k^-)+tr(K_kHP_k^-H^TK_k^T)+tr(K_kRK_k^T)
+\end{align*}
+我们进行求偏导通过
+\begin{align*}
+\frac{d tr(P_k)}{d K_k} =0
+\end{align*}
+求解出$K_k$的值,（由于矩阵求导公式$\frac{d AB}{d A}=B^T$和$\frac{d ABA^T}{d A}=2AB$）
+\begin{align*}
+    \frac{d tr(P_k)}{d K_k} =0-2tr(HP_k^-)^T+2tr(K_kHP_k^-H^T)+tr(2K_kR)=0
+\end{align*}
+于是得到如下公式
+\begin{align*}
+    K_kR+K_kHP_k^-H^T&=HP_k^-\\
+    K_k&=\frac{HP_k^-}{R+HP_k^-H^T}
+\end{align*}
+下一个问题是怎么计算先验误差
+\begin{align*}
+P_k^-&=E(e_K^-(e_k^-)^T)\\
+     &=E((A\hat{x_{k-1}}+Bu_{k-1}-Ax_{k-1}-Bu_{k-1}-w_{k-1})(A\hat{x_{k-1}}+Bu_{k-1}-Ax_{k-1}-Bu_{k-1}-w_{k-1})^T)\\
+     &=E((Ae_{k-1}-w_{k-1})(Ae_{k-1}-w_{k-1})^T)\\
+     &=E(Ae_{k-1}e_{k-1}^TA^T-w_{k-1}e_{k-1}^TA^T-Ae_{k-1}w_{k-1}^T+w_{k-1}w_{k-1}^T)\\
+     &=AP_{k-1}A^T+Q
+\end{align*}
+其中$w_{k-1}$和$e_{k-1}$是独立的（k时刻的干扰影响k+1时刻的误差）则
+\begin{equation*}
+P_k^-=AP_{k-1}A^T+Q
+\end{equation*}
+因此
+\textbf{预测：}
+\begin{align*}
+    \text{先验：}\hat{x_k}^-&=A\hat{x_{k-1}}+Bu_{k-1}\\
+    \text{先验误差协方差：}P_k^-&=AP_k^-A^T+Q
+\end{align*}
+因为
+\begin{align*}
+    P&=P_k^--K_kHP_k^--P_k^-H^TK_k^T+K_kHP_k^-H^TK_k^T+K_kRK_k^T\\
+     &=P_k^--K_kHP_k^--P_k^-H^TK_k^T+K_k(HP_k^-H^T+R)K_k^T\\
+     &=P_k^--K_kHP_k^--P_k^-H^TK_k^T+P_k^-H^TK_k^T\\
+     &=P_k^--K_kHP_k^-\\
+\end{align*}
+\textbf{校正：}
+\begin{align*}
+    \text{卡尔曼增益：}K_k&=\frac{P_k^-H^T}{HP_k^-H^T+R}\\
+    \text{后验估计：}\hat{x_k}&=\hat{x_k}^-+K_k(Z_k-H\hat{x_k}^-)\\
+    \text{更新误差协方差：}P_k&=(I-K_kH)P_k^-
+\end{align*}
 \end{document}
