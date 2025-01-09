@@ -1,5 +1,21 @@
 \documentclass[12pt, a4paper, oneside]{ctexbook}
 \usepackage{amsmath, amsthm, amssymb, bm, graphicx, hyperref, mathrsfs}
+% 导入代码块
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+% 自定义代码块样式
+\lstset{
+    numbers=left, % 显示行号
+    numberstyle=\scriptsize, % 行号字体
+    keywordstyle=\color{blue!70}, % 关键字颜色
+    commentstyle=\color{red!50!green!50!blue!50}, % 注释颜色
+    frame=shadowbox, % 为代码块添加阴影框
+    rulesepcolor=\color{red!20!green!20!blue!20}, % 阴影框颜色
+    escapeinside=``, % 允许在代码块中使用 LaTeX 命令
+    xleftmargin=2em, xrightmargin=2em, aboveskip=1em, % 设置代码块的边距
+    framexleftmargin=2em % 阴影框左边距
+} 
 
 \title{{\Huge{\textbf{卡尔曼滤波}}}\\——基础卡尔曼滤波原理推导}
 \author{杜轩}
@@ -165,12 +181,121 @@ P_k^-=AP_{k-1}A^T+Q
     \text{后验估计：}\hat{x_k}&=\hat{x_k}^-+K_k(Z_k-H\hat{x_k}^-)\\
     \text{更新误差协方差：}P_k&=(I-K_kH)P_k^-
 \end{align*}
+\section{代码内容}
+\lstset{language=C++,breaklines=true}
+\begin{lstlisting}[caption={使用Eigen库实现}, label={lst:train-precision}]
+#include <iostream>
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+class KalmanFilter {
+public:
+    KalmanFilter(MatrixXd A, MatrixXd B, MatrixXd H, MatrixXd Q, MatrixXd R, MatrixXd P, VectorXd x)
+        : A(A), B(B), H(H), Q(Q), R(R), P(P), x(x) {}
+
+    void predict(const VectorXd &u) {
+        x = A * x + B * u;
+        P = A * P * A.transpose() + Q;
+    }
+
+    void update(const VectorXd &z) {
+        VectorXd y = z - H * x; // 计算残差
+        MatrixXd S = H * P * H.transpose() + R; // 计算残差协方差
+        MatrixXd K = P * H.transpose() * S.inverse(); // 计算卡尔曼增益
+        x = x + K * y; // 更新状态估计
+        MatrixXd I = MatrixXd::Identity(x.size(), x.size());
+        P = (I - K * H) * P; // 更新估计误差协方差
+    }
+
+    VectorXd getState() {
+        return x;
+    }
+
+private:
+    MatrixXd A, B, H, Q, R, P;
+    VectorXd x;
+};
+
+int main() {
+    // 定义矩阵
+    MatrixXd A(2, 2);
+    A << 1, 1,
+         0, 1;
+    MatrixXd B(2, 1);
+    B << 0.5,
+         1;
+    MatrixXd H(1, 2);
+    H << 1, 0;
+    MatrixXd Q(2, 2);
+    Q << 1, 0,
+         0, 1;
+    MatrixXd R(1, 1);
+    R << 1;
+    MatrixXd P(2, 2);
+    P << 1, 0,
+         0, 1;
+    VectorXd x(2);
+    x << 0,
+         1;
+
+    // 创建卡尔曼滤波器实例
+    KalmanFilter kf(A, B, H, Q, R, P, x);
+
+    // 预测和更新步骤
+    VectorXd u(1);
+    u << 1;
+    VectorXd z(1);
+    z << 2;
+
+    kf.predict(u);
+    std::cout << "预测状态：" << kf.getState().transpose() << std::endl;
+
+    kf.update(z);
+    std::cout << "更新状态：" << kf.getState().transpose() << std::endl;
+
+    return 0;
+}
+\end{lstlisting}
 \chapter{扩展卡尔曼滤波原理推导}
 对非线性的模型进行线性化处理，然后进行卡尔曼滤波
 \section{非线性模型}
 \begin{align*}
-    x_k&=f(x_{k-1},u_{k-1},w_{k-1})\\
+    x_k&=f(x_{k-1},u_{k},w_{k})\\
     z_k&=h(x_k,v_k)
 \end{align*}
-我们使用泰勒级数来线性化非线性函数即：$ f(x)=f(x_0)+\frac{\partial f}{\partial x}|_{x_0}(x-x_0) $,那在什么地方线性化呢？我们可以想到上一步的后验估计处
+
+其中$u$为输入，$z$是输出,$w$和$v$是干扰满足如下高斯分布
+    \begin{align*}
+        w\sim (0,Q)\\
+        v\sim (0,R)
+    \end{align*}
+我们使用泰勒级数来线性化非线性函数即：$ f(x)=f(x_0)+\frac{\partial f}{\partial x}|_{x_0}(x-x_0) $,那在什么地方线性化呢？我们可以想到上一步的后验估计处。
+
+则我们可以得到如下式子（计算时$w_{k}$视为0，在（$(\hat{x}_{k-1}, u_{k}, 0)$）处泰勒展开）
+\begin{equation*}
+    x_k \approx f(\hat{x}_{k-1}, u_{k}, 0) + \frac{\partial f}{\partial x}\bigg|_{\hat{x}_{k-1},u(k),0} (x_{k-1} - \hat{x}_{k-1}) + w_{k}
+\end{equation*}
+\begin{equation*}
+    z_k \approx h(\hat{x}_k, 0) + \frac{\partial h}{\partial x}\bigg|_{\hat{x}_k,0} (x_k - \hat{x}_k) + v_k
+\end{equation*}
+我们令$A_{k-1}=\frac{\partial f}{\partial x}\bigg|_{\hat{x}_{k-1},u(k),0}$,$H_k=\frac{\partial h}{\partial x}\bigg|_{\hat{x}_k,0}$,则得到了线性化的模型：
+\begin{equation*}
+    x_k \approx f(\hat{x}_{k-1}, u_{k}, 0) + A_{k-1} (x_{k-1} - \hat{x}_{k-1}) + w_{k}
+\end{equation*}
+\begin{equation*}
+    z_k \approx h(\hat{x}_k, 0) + H_k (x_k - \hat{x}_k) + v_k
+\end{equation*}
+\section{推导}
+    在这个线性化模型上应用卡尔曼滤波算法，我们可以得到如下的扩展卡尔曼滤波算法：
+    \begin{align*}
+        \text{预测：}\hat{x}_k^-&=f(\hat{x}_{k-1}, u_k, 0)\\
+        P_k^-&=A_{k-1}P_{k-1}A_{k-1}^T + Q\\
+        \text{校正：}K_k&=P_k^-H_k^T(H_kP_k^-H_k^T + R)^{-1}\\
+        \hat{x}_k&=\hat{x}_k^- + K_k(z_k - h(\hat{x}_k, 0))\\
+        P_k&=(I - K_kH_k)P_k^-\\
+    \end{align*}
+其中$A_{k-1}=\frac{\partial f}{\partial x}\bigg|_{\hat{x}_{k-1},u(k),0}$,$H_k=\frac{\partial h}{\partial x}\bigg|_{\hat{x}_k,0}$（也需随着每一步更新）
+
+
 \end{document}
